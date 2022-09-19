@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+
+    <title>Warping - Web</title>
+    <meta name="description" content="Warping - WebApp @buildWithLit">
+    <meta name="keywords" content="Warping, Stuff Sharing, Sharing at speed of light">
+    <meta name="author" content="@cicciosgamino">
+    <meta name="generator" content="lite(@cicciosgamino)">
+
+    <meta name="viewport" 
+      content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+    <!-- Startup configuration https://www.w3.org/TR/appmanifest/ -->
+    <link rel="manifest" href="/manifest.webmanifest">
+
+    <!-- Fallback application for legacy browser -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Lite">
+
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+    <!-- Theme & Scheme -->
+    <meta name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#ffffff">
+    <meta name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#333333">
+    <meta name="color-scheme" content="dark light">
+
+    <!-- Use relative path with base and rootPath --> 
+    <base href="./">
+
+    <!-- Preload the Logo custom splash-screen
+    <link rel="preload" as="image" href="/images/lite.svg"> -->
+
+    <!-- fallback favicon -->
+    <link rel="icon" href="/images/favicon.ico" sizes="any">
+    <link rel="icon" href="/images/lite.svg" type="image/svg+xml">
+
+    <script src="/js/theme-toggle.js"></script>
+    
+    <!-- Resources (if important)
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin> -->
+
+    <!-- Load and register pre-caching Service Worker -->
+    <script>
+      const baseUrl = document.querySelector('base').href;
+      console.log(`@URL >> ${baseUrl}`)
+
+      /* TODO 
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register(baseUrl + 'service-worker.js', {
+            scope: '/'
+          })
+        })
+      } */
+      
+    </script>
+    
+    <style>
+
+      @import url('/css/easings.min.css');
+
+      /* FONT - Dev BLOKK */
+      @font-face {
+        font-family: 'BLOKK';
+        src: url('./fonts/BLOKK/BLOKKNeue-Regular.eot');
+        src: url('./fonts/BLOKK/BLOKKNeue-Regular.eot?#iefix') format('embedded-opentype'),
+            url('./fonts/BLOKK/BLOKKNeue-Regular.woff2') format('woff2'),
+            url('./fonts/BLOKK/BLOKKNeue-Regular.woff') format('woff'),
+            url('./fonts/BLOKK/BLOKKNeue-Regular.otf') format('opentype'),
+            url('./fonts/BLOKK/BLOKKNeue-Regular.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+      }
+
+      /* Rubik Variable font */
+      @font-face {
+        font-family: 'Rubik';
+        font-style: normal;
+        font-weight: 100 900;
+        src: url('./fonts/Rubik/Rubik-VariableFont_wght.ttf');
+      }
+
+      @font-face {
+        font-family: 'Rubik';
+        font-style: italic;
+        font-weight: 100 900;
+        src: url('./fonts/Rubik/Rubik-Italic-VariableFont_wght.ttf');
+      }
+
+      @font-face {
+        font-family: 'Comfortaa';
+        font-weight: 100 900;
+        src: url('./fonts/Comfortaa/Comfortaa-VariableFont_wght.ttf');
+      }
+
+      * {
+        /* reset browser defaults */
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+
+        /* colors */
+        --brand: #7D68C4;
+        --brand: hsl(254,44% ,59%);
+        --brand-hue: 254;
+        --brand-saturation: 44%;
+        --brand-lightness: 59%;
+
+        --accent: yellow;
+
+        --custom-green: hsl(117, 100%, 46%);
+        --custom-red: hsl(352, 89%, 59%);
+
+        /* FONT - Working
+           Github method to apply system fonts, directly calling them
+        --app-font-family: -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+          "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; */
+        --app-font-family: 'Rubik', sans-serif;
+
+        /* FONT - Dev BLOKK
+        --app-font-family: 'BLOKK', sans-serif; */
+        --app-font-size: 2rem;
+
+        /* Sizing */
+
+        /* margin & padding */
+        --min-margin: 1rem;
+        --min-padding: 1rem;
+        --base-margin: 3rem;
+        --base-padding: 3rem;
+
+        /* Colors gradient */
+        --purple-gradient: linear-gradient(
+					40deg,
+					hsl(282deg 87% 54%) 0%,
+					hsl(278deg 83% 57%) 2%,
+					hsl(273deg 78% 59%) 4%,
+					hsl(270deg 73% 60%) 7%,
+					hsl(266deg 67% 60%) 11%,
+					hsl(262deg 60% 60%) 16%,
+					hsl(259deg 54% 60%) 22%,
+					hsl(255deg 47% 59%) 29%,
+					hsl(266deg 43% 57%) 38%,
+					hsl(290deg 41% 53%) 47%,
+					hsl(312deg 50% 51%) 58%,
+					hsl(324deg 66% 51%) 68%,
+					hsl(330deg 89% 47%) 78%,
+					hsl(337deg 100% 46%) 87%,
+					hsl(345deg 100% 47%) 94%,
+					hsl(0deg 83% 50%) 100%
+					);
+
+        /* ------------------------- light (default) ------------------------- */
+        --brand-light: hsl(
+          var(--brand-hue)
+          var(--brand-saturation)
+          var(--brand-lightness));
+        /* In a light theme, text should be very dark. Notice how the lightness 
+          of the following colors is low, well under 50% */
+        --text1-light: hsl(var(--brand-hue) var(--brand-saturation) 10%);
+        --text2-light: hsl(var(--brand-hue) 30% 30%);
+        --text-grey-light: #444;
+        --text-hover-light: hsl(var(--brand-hue) 5% 5%);
+        /* Surface colors are the backgrounds, borders and other decorative surfaces
+          that text sits upon or within. In a light theme, these are the light colors,
+          as opposed to the text colors which were dark. To create light colors with
+          hsl, we'll use higher percentage values in the third lightness value. 
+          We'll also lower the saturation, so the light greys don't look too tinted. */
+        /* --surface1-light: hsl(var(--brand-hue) 25% 90%); */
+        --surface1-light: #fff;
+        --surface2-light: hsl(var(--brand-hue) 20% 99%);
+        --surface3-light: hsl(var(--brand-hue) 20% 92%);
+        --surface4-light: hsl(var(--brand-hue) 20% 85%);
+        /* shadow */
+        --surface-shadow-light: var(--brand-hue) 10% calc(var(--brand-lightness) / 5);
+        --shadow-strength-light: .02;
+
+        /* --------------------------- dark theme ----------------------------
+          The saturation is cut half and lightness reduced a relative 50% */
+        --brand-dark: hsl(
+          var(--brand-hue)
+          calc(var(--brand-saturation) / 2)
+          calc(var(--brand-lightness) / 1.5)
+        );
+        /* text */
+        /* --text1-dark: hsl(var(--brand-hue) 15% 85%); */
+        --text1-dark: #fafafa;
+        --text2-dark: hsl(var(--brand-hue) 5% 65%);
+        --text-grey-dark: #aaa;
+        --text-hover-dark: hsl(var(--brand-hue) 5% 95%);
+        /* surface */
+        --surface1-dark: hsl(var(--brand-hue) 10% 10%);
+        --surface2-dark: hsl(var(--brand-hue) 10% 15%);
+        --surface3-dark: hsl(var(--brand-hue) 5%  20%);
+        --surface4-dark: hsl(var(--brand-hue) 5% 25%);
+        /* shadow */
+        --surface-shadow-dark: var(--brand-hue) 50% 3%;
+        --shadow-strength-dark: .8;
+      }
+
+      :root {
+        color-scheme: light;
+        --brand: var(--brand-light);
+        --text1: var(--text1-light);
+        --text2: var(--text2-light);
+        --text-grey: var(--text-grey-light);
+        --text-hover: var(--text-hover-light);
+        --surface1: var(--surface1-light);
+        --surface2: var(--surface2-light);
+        --surface3: var(--surface3-light);
+        --surface4: var(--surface4-light);
+        --surface-shadow: var(--surface-shadow-light);
+        --shadow-strength: var(--shadow-strength-light);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --brand: var(--brand-dark);
+          --text1: var(--text1-dark);
+          --text2: var(--text2-dark);
+          --text-grey: var(--text-grey-dark);
+          --text-hover: var(--text-hover-dark);
+          --surface1: var(--surface1-dark);
+          --surface2: var(--surface2-dark);
+          --surface3: var(--surface3-dark);
+          --surface4: var(--surface4-dark);
+          --surface-shadow: var(--surface-shadow-dark);
+          --shadow-strength: var(--shadow-strength-dark);
+        }
+      }
+
+      [data-theme="light"] {
+        color-scheme: light;
+        --brand: var(--brand-light);
+        --text1: var(--text1-light);
+        --text2: var(--text2-light);
+        --text-grey: var(--text-grey-light);
+        --text-hover: var(--text-hover-light);
+        --surface1: var(--surface1-light);
+        --surface2: var(--surface2-light);
+        --surface3: var(--surface3-light);
+        --surface4: var(--surface4-light);
+        --surface-shadow: var(--surface-shadow-light);
+        --shadow-strength: var(--shadow-strength-light);
+      }
+
+      [data-theme="dark"] {
+        color-scheme: dark; 
+        --brand: var(--brand-dark);
+        --text1: var(--text1-dark);
+        --text2: var(--text2-dark);
+        --text-grey: var(--text-grey-dark);
+        --text-hover: var(--text-hover-dark);
+        --surface1: var(--surface1-dark);
+        --surface2: var(--surface2-dark);
+        --surface3: var(--surface3-dark);
+        --surface4: var(--surface4-dark);
+        --surface-shadow: var(--surface-shadow-dark);
+        --shadow-strength: var(--shadow-strength-dark);
+      }
+
+      /* Good idea to create a classname that pairs a surface color with
+        an accessible text color., each of the themes created in this
+        challenge pass contrast scores. The dim color scheme has the lowest
+        contrast of them, but still passes the minimum requirements. To help
+        others on the team use good contrasting colors. */
+      .surface1 {
+        background-color: var(--surface1);
+        color: var(--text2);
+      }
+      .surface2 {
+        background-color: var(--surface2);
+        color: var(--text2);
+      }
+      .surface3 {
+        background-color: var(--surface3);
+        color: var(--text1);
+      }
+      .surface4 {
+        background-color: var(--surface4);
+        color: var(--text1);
+      }
+      .rad-shadow {
+        box-shadow:
+          0 2.8px 2.2px hsl(var(--surface-shadow) / calc(var(--shadow-strength) + .03)),
+          0 6.7px 5.3px hsl(var(--surface-shadow) / calc(var(--shadow-strength) + .01)),
+          0 12.5px 10px hsl(var(--surface-shadow) / calc(var(--shadow-strength) + .02)),
+          0 22.3px 17.9px hsl(var(--surface-shadow) / calc(var(--shadow-strength) + .02)),
+          0 41.8px 33.4px hsl(var(--surface-shadow) / calc(var(--shadow-strength) + .03)),
+          0 100px 80px hsl(var(--surface-shadow) / var(--shadow-strength));
+      }
+
+      html {
+        /* base rem unit (10px) */
+        font-size: 62.5%;
+        block-size: 100%;
+
+        color-scheme: light;
+      }
+
+      html[data-theme="dark"] {
+        color-scheme: dark;
+      }
+
+      body {
+        min-height: 100vh;
+        font-family: var(--app-font-family);
+        font-size: var(--app-font-size);
+        line-height: 2rem;
+        -webkit-font-smoothing: antialiased;
+
+        background-color: var(--surface1);
+        color: var(--text1);
+
+        position: relative;
+      }
+
+      /* Headers */
+      h1, h2, h4, figure {
+        color: var(--text1);
+      }
+
+      h3 {
+        font-size: 4.7rem;
+        color: var(--text2);
+      }
+
+      p {
+        color: var(--text2);
+      }
+
+      /* styling for rendering while resources are loading - image */
+      app-lite[unresolved] {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-image: url('/images/lite.svg');
+        background-repeat: no-repeat;
+        background-position: center;
+        background-size: 30% auto;
+      }
+
+      /* styling for rendering while resources are loading - text */
+      app-lite[unresolved]::after {
+        /* version */
+        content: "Warping v0.1.o";
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 10%;
+        color: var(--text1);
+        text-align: center;
+      }
+
+      /* --------------------------- theme-toggle -------------------------- */
+      #theme-toggle {
+        position: absolute;
+        top: 1.9rem;
+        right: 2.3rem;
+      }
+
+      .theme-toggle {
+      /* --size: 3.2rem; */
+      --size: 3.1rem;
+      /* example TODO
+      --icon-fill: hsl(210 10% 30%);
+      --icon-fill-hover: hsl(210 10% 15%); */
+      --icon-fill: var(--text1);
+      --icon-fill-hover: var(--text-hover);
+
+      background: none;
+      border: none;
+
+      inline-size: var(--size);
+      block-size: var(--size);
+      aspect-ratio: 1;
+      border-radius: 50%;
+
+      cursor: pointer;
+      /* no double tap so go fast */
+      touch-action: manipulation;
+      outline-offset: 5px;
+
+      z-index: 100;
+    }
+
+    .theme-toggle[data-theme="dark"] {
+      /* redundat as example */
+      --icon-fill: var(--text1);
+      --icon-fill-hover: var(--text-hover-dark);
+    }
+
+    /* bigger button for coarse pointer */
+    @media (pointer: coarse) {
+      .theme-toggle {
+        --size: 4.8rem;
+      }
+    }
+
+    /* The SVG inside of the button needs some styles as well.
+      The SVG should fit the size of the button and, for visual
+      softness, round out the line ends: */
+    .theme-toggle > svg {
+      inline-size: 100%;
+      block-size: 100%;
+      /* sharp border */
+      stroke-linecap: round;
+    }
+
+    /* animation - to scale, rotation, animations to happen from the 
+      center of SVG shapes */
+    .sun-and-moon > :is(.moon, .sun, .sun-beams) {
+      transform-origin: center center;
+    }
+
+    /* colors light / dark / hover / focus */
+    .sun-and-moon > :is(.moon, .sun) {
+      fill: var(--icon-fill);
+    }
+
+    .theme-toggle:is(:hover, :focus-visible) .sun-and-moon > :is(.moon, .sun) {
+      fill: var(--icon-fill-hover);
+    }
+
+    .sun-and-moon > .sun-beams {
+      stroke: var(--icon-fill);
+      stroke-width: 2px;
+    }
+
+    .theme-toggle:is(:hover, :focus-visible) .sun-and-moon > .sun-beams {
+      stroke: var(--icon-fill-hover);
+    }
+
+    /* the moon styles need to remove the sunbeams, scale up the sun circle
+      and move the circle mask */
+    .sun-and-moon[data-theme="dark"] .sun {
+      transform: scale(1.75);
+    }
+
+    .sun-and-moon[data-theme="dark"] .sun-beams {
+      opacity: 0;
+    }
+
+    .sun-and-moon[data-theme="dark"] .moon > circle {
+      transform: translateX(-7px);
+
+      /* The cx attribute define the x-axis coordinate of a center point. */
+      @supports (cx: 1) {
+        transform: translateX(0);
+        cx: 17;
+      }
+
+    }
+
+    /* Animations - how and what transitions */
+    @custom-media --motionOk (prefers-reduced-motion: no-preference);
+
+    /* @media (--motionOk) {  (when @custom-media supported) */
+    @media (prefers-reduced-motion: no-preference) {
+
+      /* the sun animation */
+      .sun-and-moon .sun {
+        transition: transform .5s var(--ease-elastic-3);
+      }
+
+      .sun-and-moon .sun-beams {
+        transition:
+          transform .5s var(--ease-elastic-4),
+          opacity .5s var(--ease-3);
+      }
+
+      .sun-and-moon[data-theme="dark"] > .sun {
+        transform: scale(1.75);
+        transition-timing-function: var(--ease-3);
+        transition-duration: .25s;
+      }
+
+      .sun-and-moon[data-theme="dark"] > .sun-beams {
+        transform: rotateZ(-25deg);
+        transition-duration: .15s;
+      }
+
+      /* the moon animation */
+      .sun-and-moon > .moon > circle {
+        transform: translateX(+7px);
+        transition: transform .25s var(--ease-out-5);
+
+        @supports (cx: 1) {
+          transform: translateX(0);
+          cx: 17;
+          transition: cx .25s var(--ease-out-5);
+        }
+      }
+
+      .sun-and-moon[data-theme="dark"] > .moon > circle {
+        transition-delay: .25s;
+        transition-duration: .5s;
+      }
+    }
+
+    </style>
+
+  </head>
+  <body>
+
+    <!-- Main WebApp Component (unresolved) -->
+    <app-lite unresolved></app-lite>
+
+    <!-- theme-toggle button -->
+    <button
+      id="theme-toggle"
+      class="theme-toggle"
+      title="Toggles light & dark"
+      aria-label="auto"
+      aria-live="polite">
+
+      <svg class="sun-and-moon" aria-hidden="true" width="24" height="24" viewBox="0 0 24 24">
+        <mask class="moon" id="moon-mask">
+          <rect x="0" y="0" width="100%" height="100%" fill="white" />
+          <circle cx="24" cy="10" r="6" fill="black" />
+        </mask>
+
+        <circle class="sun" cx="12" cy="12" r="6" mask="url(#moon-mask)" fill="currentColor" />
+
+        <g class="sun-beams" stroke="currentColor">
+          <line x1="12" y1="1" x2="12" y2="3" />
+          <line x1="12" y1="21" x2="12" y2="23" />
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+          <line x1="1" y1="12" x2="3" y2="12" />
+          <line x1="21" y1="12" x2="23" y2="12" />
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </g>
+      </svg>
+    </button>
+
+    <!-- Root dialog -->
+    <dialog id="root-dialog">
+
+      <form method="dialog">
+        <p><label>Favorite animal:
+          <select>
+            <option value="default">Choose...</option>
+            <option>Brine shrimp</option>
+            <option>Red panda</option>
+            <option>Spider monkey</option>
+          </select>
+        </label></p>
+        <div>
+          <button value="cancel">Cancel</button>
+          <button id="confirmBtn" value="default">Confirm</button>
+        </div>
+      </form>
+      
+    </dialog>
+
+    <noscript>
+      <h1>Enable JavaScript</h1>
+      <h3>Lite works only with JavaScript!</h3>
+    </noscript>
+
+    <script type="module" src="/src/app-lite.js" crossorigin></script>
+
+    <script>
+      window.addEventListener('DOMContentLoaded', (event) => {
+        // WebApp version (README, package.json, CHANGELOG, index.html) 
+        window.webAppVersion = 'v0.1.0'
+        
+        // Console a Welcome message for Developers (images/icons/icons96x96.png)
+        console.log(
+          `%cWarping \n%cWebApp -- ${window.webAppVersion} --`,
+          `font-size: 32px; color: #7D68C4;`,
+          `padding: 10px 0px 0px 0px; font-size: 16px; color: #333;`
+        )
+
+        // when DOMContentLoaded remove the unresolved attribute
+        document.querySelector('app-lite')
+          .removeAttribute('unresolved')
+      })
+    </script>
+
+</body>
+</html>

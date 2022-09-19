@@ -1,0 +1,27 @@
+{
+  "name": "warping-web",
+  "version": "0.1.0",
+  "description": "Warping WebApp, Share stuff at the speed of light!",
+  "main": "dist/lite.es.js",
+  "exports": "./dist/lite.es.js",
+  "files": [
+    "dist"
+  ],
+  "repository": "https://github.com/CICCIOSGAMINO/warping.git",
+  "author": "@cicciosgamino <marco.canali@gmail.com>",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --port 3000 --host",
+    "prestart": "npm run build",
+    "start": "firebase serve --only hosting"
+  },
+  "private": true,
+  "dependencies": {
+    "firebase": "^9.9.4",
+    "lit": "*"
+  },
+  "devDependencies": {
+    "vite": "^3.1.0"
+  }
+}

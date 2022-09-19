@@ -1,0 +1,80 @@
+{
+  "lang":"en",
+  "dir": "ltr",
+  "name": "Slabbed - WebApp",
+  "short_name": "Slabbed",
+  "description": "Slabbed WebApp, Shop & more",
+  "start_url": "/?source=pwa",
+  "display": "fullscreen",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "theme_color": "#7D68C4",
+  "background_color": "#fff",
+  "icons": [
+    {
+      "src": "images/icons/icon48x48.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icons/icon72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icons/icon128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icons/icon192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icons/icon256x256.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    },
+    {
+      "src": "images/icons/icon512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "images/lite.svg",
+      "sizes": "1024x1024"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "images/screenshots/screen_one.png",
+      "sizes": "446x668",
+      "type": "image/png"
+    },
+    {
+      "src": "images/screenshots/screen_two.png",
+      "sizes": "446x668",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New WebApp",
+      "url": "/new-app/create?utm_source=jumplist",
+      "icons": [
+        {
+          "src": "images/shortcuts/new48x48.png",
+          "type": "image/png",
+          "sizes": "48x48"
+        },
+        {
+          "src": "images/shortcuts/new96x96.png",
+          "type": "image/png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ]
+}
