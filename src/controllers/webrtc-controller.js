@@ -15,6 +15,9 @@ const ICE_GOOGLE_CONF = {
 
 // DataChannel name
 const chName = 'cha0'
+let receivedSize, bitrateMax
+let receiveBuffer = []
+let callerOrCallee, ch
 
 export class WebRtcController {
 
@@ -24,7 +27,7 @@ export class WebRtcController {
         (this.host = host).addController(this)
 
         // init CALLER or CALLEE
-        this.callerOrCallee = callType
+        callerOrCallee = callType
 
         // ICE Google Config
         this.peerConnection = new RTCPeerConnection(this.ICE_GOOGLE_CONF)
@@ -85,58 +88,34 @@ export class WebRtcController {
         this.peerConnection.addEventListener('icecandidate', callback)
     }
 
-    // send message to other peer
-    sendMsg (msg) {
-
-        if (this.ch.readyState === 'open') {
-            // ch open send msg
-        } else {
-            
-        }
-
-        // TODO
-        console.log('@READY-STATE >> ', this.ch.readyState)
-
-        // TODO insert readyState in if
-        if (!this.ch) return
-
-        this.ch.send(msg)
-    }
-
-    // wrapper triggered by debug variable
-    consoleLog(text) {
-        if (!this.host.debug) return
-        console.log(text)
-    }
-
 
     // init RTCPeerConnection listeners
     #initPeerConnectionListeners () {
 
         this.peerConnection.addEventListener('iceconnectionstatechange ', () => {
           this.consoleLog(
-              `@ICE-${this.callerOrCallee} Connection state change >> ${this.peerConnection.iceConnectionState}`)
+              `@ICE-${callerOrCallee} Connection state change >> ${this.peerConnection.iceConnectionState}`)
         })
         
         this.peerConnection.addEventListener('icegatheringstatechange', () => {
           this.consoleLog(
-              `@ICE-${this.callerOrCallee} Gathering state changed >> ${this.peerConnection.iceGatheringState}`)
+              `@ICE-${callerOrCallee} Gathering state changed >> ${this.peerConnection.iceGatheringState}`)
         })
     
         this.peerConnection.addEventListener('icecandidateerror', (err) => {
           this.consoleLog(
-            `@ICE-${this.callerOrCallee} icecandidateerror >> `, err)
+            `@ICE-${callerOrCallee} icecandidateerror >> `, err)
         })
       
         this.peerConnection.addEventListener('connectionstatechange', () => {
           this.consoleLog(
-            `@CONNECTION-${this.callerOrCallee} state >> ${this.peerConnection.connectionState}`)
+            `@CONNECTION-${callerOrCallee} state >> ${this.peerConnection.connectionState}`)
   
         })
 
         this.peerConnection.addEventListener('signalingstatechange', () => {
             this.consoleLog(
-                `@SIGNALING-${this.callerOrCallee} >> ${this.peerConnection.signalingState}`)
+                `@SIGNALING-${callerOrCallee} >> ${this.peerConnection.signalingState}`)
         })
     } // end initPeerConnectionListeners
 
@@ -145,22 +124,22 @@ export class WebRtcController {
     #initDataChannel () {
   
         // the caller start the data channel - callee listen to
-        if (this.callerOrCallee === 'CALLER') {
+        if (callerOrCallee === 'CALLER') {
   
-          this.ch =this.peerConnection.createDataChannel(chName)
+          ch =this.peerConnection.createDataChannel(chName)
           this.#initDataListeners()
         }
   
         // callee listen for the channel
-        if (this.callerOrCallee === 'CALLEE') {
+        if (callerOrCallee === 'CALLEE') {
 
             // event - RTCDataChannelEvent
             this.peerConnection.addEventListener('datachannel', event => {
 
             // @DEBUG
-            this.consoleLog(`@${chName}-${this.callerOrCallee} >> `, event.channel)
+            this.consoleLog(`@${chName}-${callerOrCallee} >> `, event.channel)
 
-            this.ch = event.channel
+            ch = event.channel
             this.#initDataListeners()
             })
         }
@@ -170,28 +149,83 @@ export class WebRtcController {
 
     // init DataChannel listeners
     #initDataListeners () {
-        if (!this.ch) return
+        if (!ch) return
 
         // RTCDataChannel
-        const chName = this.ch.label
+        const chName = ch.label
 
-        this.ch.addEventListener('open', event => {
+        // TODO binaryType
+        ch.binaryType = 'arraybuffer'
+        // init some vars
+        receivedSize = 0
+        bitrateMax = 0
+
+        ch.addEventListener('open', event => {
             // data channel open
-            this.consoleLog(`@${chName}-${this.callerOrCallee} >> OPEN`)
+            this.consoleLog(`@${chName}-${callerOrCallee} >> OPEN`)
         })
 
-        this.ch.addEventListener('close', event => {
+        ch.addEventListener('close', event => {
             // data channel close
-            this.consoleLog(`@${chName}-${this.callerOrCallee} >> CLOSE`)
+            this.consoleLog(`@${chName}-${callerOrCallee} >> CLOSE`)
         })
 
-        this.ch.addEventListener('message', event => {
-            this.consoleLog(`@${chName}-${this.callerOrCallee} MSG (Received) >> ${event.data}`)
-        })
+        ch.addEventListener('message', this.messageCallback.bind(this))
 
-        this.ch.addEventListener('error', event => {
-            this.consoleLog(`@ERROR-${this.callerOrCallee} >> ${event}`)
+        ch.addEventListener('error', event => {
+            this.consoleLog(`@ERROR-${callerOrCallee} >> ${event}`)
         })
+    }
+
+    messageCallback (event) {
+        this.consoleLog(`@${chName}-${callerOrCallee} BYTE >> ${event.data.byteLength}`)
+        
+        receiveBuffer.push(event.data)
+        receivedSize += event.data.byteLength
+        
+        // use the shared variable you can reach in app
+        this.received = receivedSize
+
+        // if (receivedSize )
+        
+        const received = new Blob(receiveBuffer)
+        receiveBuffer = []
+
+        this.downloadAnchor = URL.createObjectURL(received)
+
+        console.log(`@FILE-URL ${callerOrCallee} >> `, URL.createObjectURL(received))
+
+    }
+
+    // send message to other peer
+    sendMsg (msg) {
+
+        if (ch && ch.readyState === 'open') {
+            // ch is open
+            ch.send(msg)
+
+        } else {
+            console.log('@SEND-MSG >> CH is not ready ', ch.readyState)
+        }
+        
+    }
+
+    // send data to other peer
+    sendData (blob) {
+
+        if (ch && ch.readyState === 'open') {
+            // ch is open
+            ch.send(blob)
+            
+        } else {
+            console.log('@SEND-MSG >> CH is not ready ', ch.readyState)
+        }
+    }
+
+    // wrapper triggered by debug variable
+    consoleLog(text) {
+        if (!this.host.debug) return
+        console.log(text)
     }
 
 

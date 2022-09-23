@@ -104,6 +104,46 @@ export class FirebaseController {
         return newWarp
     }
 
+    async setCalleeFileInfo (warpId, fileInfo) {
+
+        if (!fileInfo || !warpId) return
+
+        const filesPath = `warps/${warpId}/calleeFiles`
+
+        await addDoc(
+            collection(this.firestore, filesPath),
+            fileInfo
+        )
+    }
+
+    async calleeFilesChanges (warpId, callback) {
+        const filesPath = `warps/${warpId}/calleeFiles`
+
+        const unsubscribe = onSnapshot(
+            query(collection(this.firestore, filesPath)),
+            callback)
+    }
+
+    async setCallerFileInfo (warpId, fileInfo) {
+
+        if (!fileInfo || !warpId) return
+
+        const filesPath = `warps/${warpId}/callerFiles`
+
+        await addDoc(
+            collection(this.firestore, filesPath),
+            fileInfo
+        )
+    }
+
+    async callerFilesChanges (warpId, callback) {
+        const filesPath = `warps/${warpId}/callerFiles`
+
+        const unsubscribe = onSnapshot(
+            query(collection(this.firestore, filesPath)),
+            callback)
+    }
+
     async addOfferToWarp (warpId, warpOffer) {
 
         if (!warpOffer || !warpId) return
@@ -138,14 +178,6 @@ export class FirebaseController {
         await deleteDoc(docRef)
     }
 
-    async addDataChannel (warpId, dataChannel) {
-        const dataChannelPath = `warps/${warpId}/dataChannels`
-        await addDoc(
-            collection(this.firestore, dataChannelPath),
-            dataChannel
-        )
-    }
-
     async callerAddIceCandidate (warpId, iceCallerCandidate) {
 
         const callerPath = `warps/${warpId}/callerCandidates`
@@ -163,7 +195,6 @@ export class FirebaseController {
         const unsubscribe = onSnapshot(
             query(collection(this.firestore, callerPath)),
             callback)
-        // OPTIMIZE - unsubscribe when done
     }
 
     async calleeAddIceCandidate (warpId, iceCalleeCandidate) {
@@ -183,7 +214,6 @@ export class FirebaseController {
         const unsubscribe = onSnapshot(
             query(collection(this.firestore, calleePath)),
             callback)
-        // OPTIMIZE - unsubscribe when done
     }
 
 }
