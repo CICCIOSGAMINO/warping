@@ -2,7 +2,7 @@ warping-web
 ===========
 [TOC]
 
-v0.1.0 - 10-09-2022
+v0.3.0 - 29-09-2022
 
 Warping Web - WebApp, share all stuff you need at the speed of light! Warping is trying to use the best speed possibile between the peers. Communication end to end encypted no server in the middle.
 
@@ -150,8 +150,21 @@ firebase deploy --only hosting
 firebase deploy --only hosting -m "Deploy images"
 ```
 
-Firestore TTL (Time To Live)
-https://firebase.google.com/docs/firestore/ttl
+Functions
+Google Cloud Functions cleanWarps is used to clean the inactive warps bad closed.
+
+```bash
+# deploy only one functions
+firebase deploy --only functions:newsletterPush
+
+npm run functions
+```
 
 GCP Firestore Console
 https://console.cloud.google.com/firestore/ttl?project=warping-web
+
+# Functions
+Actually a Google Cloud Functions run every 24 hours to clean the inactives warps.
+
+https://console.cloud.google.com/functions/details/europe-west6/cleanWarps
+https://console.cloud.google.com/logs/query

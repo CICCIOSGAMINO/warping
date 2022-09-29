@@ -6,7 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.1] - 27-04-2022
+## [0.3.0] - 29-09-2022
+
+### Add
+	- MVP working WebApp
+
+## [0.0.1] - 27-08-2022
 
 ### Add
 	- Init the project

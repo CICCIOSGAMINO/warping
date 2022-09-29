@@ -1,6 +1,6 @@
 {
   "name": "warping-web",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Warping WebApp, Share stuff at the speed of light!",
   "main": "dist/lite.es.js",
   "exports": "./dist/lite.es.js",
@@ -11,6 +11,7 @@
   "author": "@cicciosgamino <marco.canali@gmail.com>",
   "scripts": {
     "dev": "vite --host",
+    "functions": "firebase deploy --only functions",
     "build": "vite build",
     "preview": "vite preview --port 3000 --host",
     "prestart": "npm run build",

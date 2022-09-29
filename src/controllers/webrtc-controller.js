@@ -16,8 +16,8 @@ const ICE_GOOGLE_CONF = {
 // DataChannel name
 const chName = 'cha0'
 let receivedSize, bitrateMax
-let receiveBuffer = []
 let callerOrCallee, ch
+let receiveBuffer = []
 
 export class WebRtcController {
 
@@ -28,6 +28,8 @@ export class WebRtcController {
 
         // init CALLER or CALLEE
         callerOrCallee = callType
+
+        this.host.filesToDownload = []
 
         // ICE Google Config
         this.peerConnection = new RTCPeerConnection(this.ICE_GOOGLE_CONF)
@@ -120,6 +122,7 @@ export class WebRtcController {
     } // end initPeerConnectionListeners
 
 
+    // ----------------------------------- Data -------------------------------
     // init DataChannel s
     #initDataChannel () {
   
@@ -178,7 +181,7 @@ export class WebRtcController {
     }
 
     messageCallback (event) {
-        this.consoleLog(`@${chName}-${callerOrCallee} BYTE >> ${event.data.byteLength}`)
+        // console.log(`@${chName} BYTE >> ${event.data.byteLength}`)
         
         receiveBuffer.push(event.data)
         receivedSize += event.data.byteLength
@@ -186,14 +189,36 @@ export class WebRtcController {
         // use the shared variable you can reach in app
         this.received = receivedSize
 
-        // if (receivedSize )
-        
-        const received = new Blob(receiveBuffer)
-        receiveBuffer = []
+        // when we have info from signaling pack in Blob
+        if (this.host.filesToDownload.length === 0) return
 
-        this.downloadAnchor = URL.createObjectURL(received)
+        // @DEBUG
+        console.log('@DEBUG FILES2DOWNLOAD >> ', this.host.filesToDownload.length)
+        console.log('@FILES-ARRAY >> -----')
+        console.log(typeof this.host.filesToDownload)
+        console.log(this.host.filesToDownload[0])
+        console.log(this.host.filesToDownload.map(i => console.log('@I >> ', i)))
+        console.log('<< ---------------')
 
-        console.log(`@FILE-URL ${callerOrCallee} >> `, URL.createObjectURL(received))
+        const fileName = this.host.filesToDownload[0].name
+        const fileSize = this.host.filesToDownload[0].size
+
+        // // @DEBUG
+        console.log('@FILE-NAME >> ', fileName)
+        console.log('@FILE-SIZE >> ', fileSize)
+
+        // all bytes arrived
+        if (receivedSize === fileSize) {
+
+            const received = new Blob(receiveBuffer)
+            receiveBuffer = []
+
+            this.host.downloadAnchor = URL.createObjectURL(received)
+            this.host.downloadName = fileName
+            this.host.downloadSize = fileSize
+            this.host.requestUpdate()
+
+        }
 
     }
 

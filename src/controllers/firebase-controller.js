@@ -35,6 +35,8 @@ const firestoreConfig = {
     cacheSizeBytes: CACHE_SIZE_UNLIMITED
 }
 
+let callerOrCallee
+
 export class FirebaseController {
 
     constructor (host) {
@@ -44,8 +46,6 @@ export class FirebaseController {
         this.initFirebaseApp()
         // this.initAppCheck()
         this.initFirestore()
-
-        this.callerOrCallee = ''
 
         // warps collection - where all warps are
         this.warpsCollection = collection(this.firestore, 'warps')
@@ -73,6 +73,10 @@ export class FirebaseController {
             this.app
         )
     }
+
+    initCallerOrCallee (calOrCale) {
+        callerOrCallee = calOrCale
+    }
     
     hostConnected () {
 	    this.host.requestUpdate()
@@ -92,10 +96,15 @@ export class FirebaseController {
         console.log(text)
     }
 
+    // get the type CALLER | CALLEE
+    getCallType () {
+        return callerOrCallee
+    }
+
     async initWarp () {
         const warpObj = {
             // Add the ts field
-            ts: Timestamp.now()
+            ts: Timestamp.now().seconds
         }
         const newWarp = await addDoc(
             this.warpsCollection,
@@ -104,11 +113,20 @@ export class FirebaseController {
         return newWarp
     }
 
-    async setCalleeFileInfo (warpId, fileInfo) {
+    async setFileInfo (warpId, fileInfo) {
+
+        let filesPath = ''
 
         if (!fileInfo || !warpId) return
+        if (callerOrCallee !== 'CALLER' && callerOrCallee !== 'CALLEE') return
 
-        const filesPath = `warps/${warpId}/calleeFiles`
+        if (callerOrCallee === 'CALLER') {
+            filesPath = `warps/${warpId}/calleeFiles`
+        }
+
+        if (callerOrCallee === 'CALLEE') {
+            filesPath = `warps/${warpId}/callerFiles`
+        }
 
         await addDoc(
             collection(this.firestore, filesPath),
@@ -116,32 +134,30 @@ export class FirebaseController {
         )
     }
 
-    async calleeFilesChanges (warpId, callback) {
-        const filesPath = `warps/${warpId}/calleeFiles`
-
-        const unsubscribe = onSnapshot(
-            query(collection(this.firestore, filesPath)),
-            callback)
+    // await that fileInfo are ready in the application
+    async getFileInfo (warpId) {
+        const docRef = doc(this.firestore, 'warps', warpId)
+        await getDoc(docRef)
     }
 
-    async setCallerFileInfo (warpId, fileInfo) {
+    async filesChanges (warpId, callback) {
+        // listening of files change on calleeFiles for caller
+        // and on callerFiles for callee
+        if (callerOrCallee !== 'CALLER' && callerOrCallee !== 'CALLEE') return
 
-        if (!fileInfo || !warpId) return
+        let filesPath
 
-        const filesPath = `warps/${warpId}/callerFiles`
+        if (callerOrCallee === 'CALLER') {
+            filesPath = `warps/${warpId}/callerFiles`
+        }
 
-        await addDoc(
-            collection(this.firestore, filesPath),
-            fileInfo
-        )
-    }
+        if (callerOrCallee === 'CALLEE') {
+            filesPath = `warps/${warpId}/calleeFiles`
+        }
 
-    async callerFilesChanges (warpId, callback) {
-        const filesPath = `warps/${warpId}/callerFiles`
+        const q = query(collection(this.firestore, filesPath))
 
-        const unsubscribe = onSnapshot(
-            query(collection(this.firestore, filesPath)),
-            callback)
+        const unsubscribe = onSnapshot(q, callback)
     }
 
     async addOfferToWarp (warpId, warpOffer) {

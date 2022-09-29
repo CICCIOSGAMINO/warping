@@ -13,7 +13,6 @@ let calleeContainer, callerContainer
 let fileReader
 let sendProgress, receiveProgress
 let statusMsg, bitrate, download
-
 let firebaseController, webrtcController
 
 class AppLite extends PendingContainer(LitElement) {
@@ -37,21 +36,21 @@ class AppLite extends PendingContainer(LitElement) {
 
         main[caller] {
           /* caller animation */
-          animation: callerAn 1500ms ease 1 forwards;
+          animation: callerLeft 1500ms ease 1 forwards;
         }
 
         main[callee] {
           /* callee animation */
-          animation: calleeAn 1500ms ease 1 forwards;
+          animation: calleeRight 1500ms ease 1 forwards;
         }
 
 
-        @keyframes callerAn {
+        @keyframes callerLeft {
           0% { grid-template-columns: 1fr 1fr; }
           100% { grid-template-columns: 1fr 23fr; }
         }
 
-        @keyframes calleeAn {
+        @keyframes calleeRight {
           0% { grid-template-columns: 1fr 1fr; }
           100% { grid-template-columns: 23fr 1fr; }
         }
@@ -117,10 +116,30 @@ class AppLite extends PendingContainer(LitElement) {
             grid-template-rows: 50vh 50vh;
           }
 
-          section {
-            min-height: 50vh;
+          main[caller] {
+            /* caller animation */
+            animation: callerTop 1500ms ease 1 forwards;
           }
 
+          main[callee] {
+            /* callee animation */
+            animation: calleeBottom 1500ms ease 1 forwards;
+          }
+
+          section {
+            min-height: 5vh;
+          }
+
+        }
+
+        @keyframes callerTop {
+          0% { grid-template-rows: 50vh 50vh; }
+          100% { grid-template-rows: 5vh 95vh; }
+        }
+
+        @keyframes calleeBottom {
+          0% { grid-template-rows: 50vh 50vh; }
+          100% { grid-template-rows: 95vh 5vh; }
         }
 
       `
@@ -135,11 +154,15 @@ class AppLite extends PendingContainer(LitElement) {
 			offline: Boolean,
 			mobileLayout: Boolean,
 			asideIsOpen: Boolean,
-      debug: Boolean,
       caller: Boolean,
       channelOpened: Boolean,
       warpId: {
         type: String,
+        state: true,
+        attribute: false
+      },
+      filesToDownload: {
+        type: Array,
         state: true,
         attribute: false
       }
@@ -151,7 +174,6 @@ class AppLite extends PendingContainer(LitElement) {
 		super()
 		// init
 		this.asideIsOpen = false
-    this.debug = true
 		this.offline = !navigator.onLine
 		this.mobileLayout =
       window.innerWidth < 640
@@ -159,6 +181,8 @@ class AppLite extends PendingContainer(LitElement) {
     this.warpId = '---'
     this.caller = false
     this.channelOpened = false
+
+    this.downloadAnchor = ''
 
     // Firebase controller
     firebaseController = new FirebaseController(this)
@@ -270,6 +294,30 @@ class AppLite extends PendingContainer(LitElement) {
   #initFileInput () {
     this.renderRoot.getElementById('file-input')
         .addEventListener('change', this.handleFileInputChange.bind(this), false)
+
+  }
+
+  #initFilesChangeListener (warpId) {
+
+    // init the listening of fileChanges
+    firebaseController.filesChanges(warpId, (querySnapshot) => {
+
+      querySnapshot.forEach((doc) => {
+        const file = doc.data()
+        this.filesToDownload.push({
+          name: file.name,
+          size: file.size,
+          type: file.type
+        })
+      })
+
+      if (this.filesToDownload.length === 0) return
+
+      console.log('@FILE2DOWNLOAD >> ', this.filesToDownload)
+      // file change in signaling ch update the files map on webrtc ctr
+      this.filesToDownload 
+    })
+
   }
 
 
@@ -289,12 +337,17 @@ class AppLite extends PendingContainer(LitElement) {
             size: file.size
         }
 
-        await firebaseController.setFileInfo(this.warpId, fileInfo)
+        await firebaseController.setFileInfo(
+          this.warpId,
+          fileInfo)
 
     } else {
         console.log('@FILE >> No File Chosen!')
         return
     }
+
+    await firebaseController.getFileInfo(this.warpId)
+    await new Promise(resolve => setTimeout(resolve, 1000))
 
     // Select the Chunk Size to broke the file to send
     const chunkSize = 16384
@@ -302,14 +355,15 @@ class AppLite extends PendingContainer(LitElement) {
     let offset = 0
 
     fileReader.addEventListener('error', () =>
-        console.error(`@FILE-READER ${this.callerOrCallee} >> Error Reading File!`))
+        console.error(`@FILE-READER >> Error Reading File!`))
 
     fileReader.addEventListener('abort', () =>
-        console.log(`@FILE-READER ${this.callerOrCallee} >> Reading File Aborted!`))
+        console.log(`@FILE-READER >> Reading File Aborted!`))
 
     fileReader.addEventListener('load', (event) => {
-        console.log(`@FILE-READER ${this.callerOrCallee} > Read OK`)
+        console.log(`@FILE-READER >> Read OK`)
 
+        // File read, time to send down the ch
         webrtcController.sendData(event.target.result)
 
         offset += event.target.result.byteLength
@@ -335,17 +389,12 @@ class AppLite extends PendingContainer(LitElement) {
   } // end handleFileInputChange
 
 
+  // new warp means this is a Caller Peer
   async #newWarp () {
 
-    // init the RTCPeerConnection as CALLER
+    // init the RTCPeerConnection / FirebaseCOntroller as CALLER
     webrtcController = new WebRtcController(this, 'CALLER')
-    this.callerOrCallee = webrtcController.callerOrCallee
-
-    // init the listener for input file
-    this.#initFileInput()
-
-    // @DEBUG
-    console.log(`@CALLER oR CALLEE >> `, this.callerOrCallee)
+    firebaseController.initCallerOrCallee('CALLER')
 
     // newWarp this is a caller 
     this.#triggerCallerUi()
@@ -359,6 +408,10 @@ class AppLite extends PendingContainer(LitElement) {
     this.warpId = warpRef.id
 
     console.log('@WARP-ID >> ', this.warpId)
+
+    // init files listeners on UI and on Signaling ch
+    this.#initFilesChangeListener(warpRef.id)
+    this.#initFileInput()
 
     // listen when a RTCIceCandidate is fired from RTCPeerConnection
     webrtcController.listenIceCandidate(
@@ -403,10 +456,12 @@ class AppLite extends PendingContainer(LitElement) {
 
   }
 
+  // join warp means this is a Callee Peers
   async #joinWarp () {
 
     // init the RTCPeerConnection as CALLEE
     webrtcController = new WebRtcController(this, 'CALLEE')
+    firebaseController.initCallerOrCallee('CALLEE')
 
     const input = this.renderRoot.getElementById('warpid')
 
@@ -415,10 +470,6 @@ class AppLite extends PendingContainer(LitElement) {
       console.log('@WARP-ID >> Wrong Warp ID!')
       return
     }
-
-    // newWarp this is a caller
-    // TODO
-    // this.#triggerCalleeUi()
 
     this.warpId = input.value
     const warpToJoin =
@@ -455,6 +506,10 @@ class AppLite extends PendingContainer(LitElement) {
     firebaseController.calleeIceCandidateChanges(
       this.warpId,
       this.#handleIceCandidateChanges.bind(this))
+
+    // init files listeners on UI and on Signaling ch
+    // this.#initFileInput() TODO listen to file change on callee too
+    this.#initFilesChangeListener(this.warpId)
     
   }
 
@@ -505,7 +560,7 @@ class AppLite extends PendingContainer(LitElement) {
         const data = change.doc.data()
 
         // @DEBUG
-        console.log(`@ICE-CHANGED >> ${data.candidate}`)
+        // console.log(`@ICE-CHANGED >> ${data.candidate}`)
 
         try {
 
@@ -514,7 +569,7 @@ class AppLite extends PendingContainer(LitElement) {
 
         } catch (e) {
           console.error(
-            `@CATCH ${this.callerOrCallee} >> Error adding received ice candidate`,
+            `@CATCH >> Error adding received ice candidate`,
             e)
         }
         
@@ -618,12 +673,18 @@ class AppLite extends PendingContainer(LitElement) {
                 Join Warp
             </button>
 
-            ${webrtcController.downloadAnchor
-                ? html`<a id="download" href=${webrtcController.downloadAnchor} download>Download</a>`
+            ${this.downloadAnchor
+                ? html`
+                  <p>${this.downloadName}</p>
+                  <p>${this.downloadSize} byte</p>
+
+                  <a 
+                    id="download"
+                    href=${this.downloadAnchor}
+                    download=${this.downloadName}>Download</a>
+                  `
                 : html``
               }
-
-            <a id="download-one" href=${webrtcController.downloadAnchor} download>Download ${webrtcController.downloadAnchor}</a>
 
           </div>
 
