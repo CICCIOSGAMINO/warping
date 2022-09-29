@@ -21,15 +21,10 @@ import {
     ReCaptchaV3Provider
 } from 'firebase/app-check'
 
-const firebaseConfig = {
-    apiKey: "AIzaSyCDM8TRwQtqghP8tSW49To6ReHGVUEKb24",
-    authDomain: "warping-web.firebaseapp.com",
-    projectId: "warping-web",
-    storageBucket: "warping-web.appspot.com",
-    messagingSenderId: "541753786981",
-    appId: "1:541753786981:web:f114f5c3fd0ac00fe1bc8c",
-    measurementId: "G-2MG098EL2Z"
-  }
+import {
+    firebaseConfig,
+    RECAPTCHA_V3_PROVIDER
+} from '../config/firebase-config.js'
 
 const firestoreConfig = {
     cacheSizeBytes: CACHE_SIZE_UNLIMITED
@@ -62,7 +57,7 @@ export class FirebaseController {
             this.app,
             // // Pass your reCAPTCHA v3 site key (public key) to activate()
             {
-                provider: new ReCaptchaV3Provider('6LcFt70gAAAAAGKNTa4dak_jaiavdx1hEwb66C19'),
+                provider: new ReCaptchaV3Provider(RECAPTCHA_V3_PROVIDER),
                 isTokenAutoRefreshEnabled: true
             }
         )

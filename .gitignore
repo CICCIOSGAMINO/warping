@@ -6,7 +6,7 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# configuration folder
+# configuration folder twilio TURN, Firebase ...
 src/config
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
