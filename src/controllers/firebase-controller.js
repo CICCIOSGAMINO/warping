@@ -14,6 +14,7 @@ import {
     deleteDoc,
     onSnapshot,
     updateDoc,
+    arrayUnion,
 } from 'firebase/firestore'
 
 import {
@@ -110,49 +111,32 @@ export class FirebaseController {
 
     async setFileInfo (warpId, fileInfo) {
 
-        let filesPath = ''
-
         if (!fileInfo || !warpId) return
         if (callerOrCallee !== 'CALLER' && callerOrCallee !== 'CALLEE') return
 
+        let callerOrCalleeFilePath
+        const docRef = doc(this.firestore, 'warps', warpId)
+
         if (callerOrCallee === 'CALLER') {
-            filesPath = `warps/${warpId}/calleeFiles`
+
+            await updateDoc(docRef, {
+                callerFiles: arrayUnion(fileInfo)
+            })
         }
 
         if (callerOrCallee === 'CALLEE') {
-            filesPath = `warps/${warpId}/callerFiles`
+
+            await updateDoc(docRef, {
+                calleeFiles: arrayUnion(fileInfo)
+            })
         }
 
-        await addDoc(
-            collection(this.firestore, filesPath),
-            fileInfo
-        )
     }
 
     // await that fileInfo are ready in the application
     async getFileInfo (warpId) {
         const docRef = doc(this.firestore, 'warps', warpId)
         await getDoc(docRef)
-    }
-
-    async filesChanges (warpId, callback) {
-        // listening of files change on calleeFiles for caller
-        // and on callerFiles for callee
-        if (callerOrCallee !== 'CALLER' && callerOrCallee !== 'CALLEE') return
-
-        let filesPath
-
-        if (callerOrCallee === 'CALLER') {
-            filesPath = `warps/${warpId}/callerFiles`
-        }
-
-        if (callerOrCallee === 'CALLEE') {
-            filesPath = `warps/${warpId}/calleeFiles`
-        }
-
-        const q = query(collection(this.firestore, filesPath))
-
-        const unsubscribe = onSnapshot(q, callback)
     }
 
     async addOfferToWarp (warpId, warpOffer) {

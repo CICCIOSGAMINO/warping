@@ -192,32 +192,31 @@ export class WebRtcController {
         // when we have info from signaling pack in Blob
         if (this.host.filesToDownload.length === 0) return
 
-        // @DEBUG
-        console.log('@DEBUG FILES2DOWNLOAD >> ', this.host.filesToDownload.length)
-        console.log('@FILES-ARRAY >> -----')
-        console.log(typeof this.host.filesToDownload)
-        console.log(this.host.filesToDownload[0])
-        console.log(this.host.filesToDownload.map(i => console.log('@I >> ', i)))
-        console.log('<< ---------------')
-
         const fileName = this.host.filesToDownload[0].name
+        const fileType = this.host.filesToDownload[0].type
         const fileSize = this.host.filesToDownload[0].size
 
-        // // @DEBUG
-        console.log('@FILE-NAME >> ', fileName)
-        console.log('@FILE-SIZE >> ', fileSize)
+        console.log(`@DEBUG FILE-SIZE ${receivedSize}  fileZise: ${fileSize}`)
 
         // all bytes arrived
         if (receivedSize === fileSize) {
 
+            console.log(`@OK >> Process File with size ${receivedSize}  fileZise: ${fileSize}`)
+
             const received = new Blob(receiveBuffer)
             receiveBuffer = []
+            receivedSize = 0
 
-            this.host.downloadAnchor = URL.createObjectURL(received)
-            this.host.downloadName = fileName
-            this.host.downloadSize = fileSize
+            this.host.filesDownloaded.push({
+                url: URL.createObjectURL(received),
+                name: fileName,
+                type: fileType,
+                size: fileSize,
+                sizeHuman: this.showFileSize(fileSize)
+            })
+
+            this.host.filesToDownload.shift()
             this.host.requestUpdate()
-
         }
 
     }
@@ -251,6 +250,30 @@ export class WebRtcController {
     consoleLog(text) {
         if (!this.host.debug) return
         console.log(text)
+    }
+
+    // output bytes size in human notation
+    showFileSize (numbersOfBytes) {
+
+        const units = [
+            'Byte', 'KiB', 'MiB', 'GiB', 'TiB',
+            'PiB', 'EiB', 'ZiB', 'YiB'
+        ]
+        
+        const exponent =
+            Math.min(
+                Math.floor(
+                    Math.log(numbersOfBytes) / Math.log(1024), units.length - 1))
+        
+        const approx = numbersOfBytes / 1024 ** exponent
+        const output =
+            exponent === 0
+            ? `${numbersOfBytes} bytes`
+            : `${approx.toFixed(3)} ${
+                units[exponent]
+                } (${numbersOfBytes} bytes)`
+        
+        return output
     }
 
 

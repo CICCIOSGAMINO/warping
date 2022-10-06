@@ -1,6 +1,6 @@
 {
   "name": "warping-web",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Warping WebApp, Share stuff at the speed of light!",
   "main": "dist/lite.es.js",
   "exports": "./dist/lite.es.js",

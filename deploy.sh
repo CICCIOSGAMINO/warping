@@ -10,7 +10,7 @@ npm run build
 # echo 'www.example.com' > CNAME
 
 # git init
-# git remote add origin https://github.com/CICCIOSGAMINO/Lite.git
+# git remote add origin https://github.com/CICCIOSGAMINO/warping.git
 
 # git add -A
 # git commit -m 'deploy'

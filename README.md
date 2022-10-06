@@ -2,11 +2,14 @@ warping-web
 ===========
 [TOC]
 
-v0.3.0 - 29-09-2022
+v0.4.0 - 06-10-2022
 
 Warping Web - WebApp, share all stuff you need at the speed of light! Warping is trying to use the best speed possibile between the peers. Communication end to end encypted no server in the middle.
 
 https://warping.....
+
+https://warping-web.web.app
+
 
 ```bash
 # start
@@ -159,9 +162,6 @@ firebase deploy --only functions:newsletterPush
 
 npm run functions
 ```
-
-GCP Firestore Console
-https://console.cloud.google.com/firestore/ttl?project=warping-web
 
 # Functions
 Actually a Google Cloud Functions run every 24 hours to clean the inactives warps.

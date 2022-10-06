@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 06-10-2022
+
+### Add
+	- New UI sections, fix UX
+
+### Changed
+	- Fix the Cloud Function to clean warps
+	- ReBuild FirebaseController
+
 ## [0.3.0] - 29-09-2022
 
 ### Add

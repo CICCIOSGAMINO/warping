@@ -14,6 +14,7 @@ let fileReader
 let sendProgress, receiveProgress
 let statusMsg, bitrate, download
 let firebaseController, webrtcController
+let filesCount = 0
 
 class AppLite extends PendingContainer(LitElement) {
 
@@ -29,9 +30,11 @@ class AppLite extends PendingContainer(LitElement) {
         }
 
         main {
+          height: 100vh;
+
           display: grid;
           grid-template-columns: 1fr 1fr;
-          justify-items: stretch;
+          justify-content: wrap;
         }
 
         main[caller] {
@@ -62,36 +65,33 @@ class AppLite extends PendingContainer(LitElement) {
           display: grid;
           justify-items: center;
           align-items: center;
+
+          gap: 3rem;
         }
 
-        #top-notification {
-          --size: 37px;
-          height: var(--size);
-
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-
-          z-index: 101;
-
-          font-size: 2rem;
-          text-align: center;
-          line-height: 3.7rem;
-          color: var(--surface1);
-          background-color: var(--brand);
-
-          transform: translateY(-37px);
-          animation: slideDown 5s 1.0s ease forwards;
+        #caller {
+          background-color: yellow;
         }
 
-        @keyframes slideDown {
-          0%, 100% {
-            transform: translateY(-37px);
-          }
-          10%, 90% {
-            transform: translateY(0px);
-          }
+        #callee {
+          background-color: red;
+        }
+
+        .content {
+          width: 100%;
+          height: 100%;
+
+          display: grid;
+          justify-items: center;
+          align-items: center;
+        }
+
+        #caller-content {
+          
+        }
+
+        #callee-content {
+
         }
 
         button {
@@ -133,13 +133,13 @@ class AppLite extends PendingContainer(LitElement) {
         }
 
         @keyframes callerTop {
-          0% { grid-template-rows: 50vh 50vh; }
-          100% { grid-template-rows: 5vh 95vh; }
+          0% { grid-template-rows: 1fr 1fr; }
+          100% { grid-template-rows: 1fr 23fr; }
         }
 
         @keyframes calleeBottom {
-          0% { grid-template-rows: 50vh 50vh; }
-          100% { grid-template-rows: 95vh 5vh; }
+          0% { grid-template-rows: 1fr 1fr; }
+          100% { grid-template-rows: 23fr 1fr; }
         }
 
       `
@@ -165,6 +165,11 @@ class AppLite extends PendingContainer(LitElement) {
         type: Array,
         state: true,
         attribute: false
+      },
+      filesDownloaded: {
+        type: Array,
+        state: true,
+        attribute: false
       }
 		}
 	}
@@ -182,7 +187,8 @@ class AppLite extends PendingContainer(LitElement) {
     this.caller = false
     this.channelOpened = false
 
-    this.downloadAnchor = ''
+    this.filesDownloaded = []
+    this.filesToDownload = []
 
     // Firebase controller
     firebaseController = new FirebaseController(this)
@@ -211,7 +217,17 @@ class AppLite extends PendingContainer(LitElement) {
 	}
 
 
-  firstUpdated () {
+  async firstUpdated () {
+
+    // if warpIn in the URL set the page as callee
+    const { hash, hostname } = window.location
+
+    if (hash) {
+      const hashWarpId = hash.replace('#', '')
+      console.log('@HASH >> ', hashWarpId)
+
+      await this.#joinWarp(hashWarpId)
+    }
 
     calleeContainer =
       this.renderRoot.getElementById('callee-container')
@@ -299,23 +315,25 @@ class AppLite extends PendingContainer(LitElement) {
 
   #initFilesChangeListener (warpId) {
 
-    // init the listening of fileChanges
-    firebaseController.filesChanges(warpId, (querySnapshot) => {
+    // init the listening of warp changes (check files)
+    firebaseController.warpChanged(warpId, (snapshot) => {
 
-      querySnapshot.forEach((doc) => {
-        const file = doc.data()
-        this.filesToDownload.push({
-          name: file.name,
-          size: file.size,
-          type: file.type
-        })
-      })
+      const warp = snapshot.data()
 
-      if (this.filesToDownload.length === 0) return
+      // use to jumt the first / init read of warp
+      if (!warp.callerFiles && !warp.calleeFiles) return
 
-      console.log('@FILE2DOWNLOAD >> ', this.filesToDownload)
-      // file change in signaling ch update the files map on webrtc ctr
-      this.filesToDownload 
+      // [{0: {size: 80085, type: 'image/jpeg', name: 'me.jpg'}}, 1: ...]
+      const firebaseFiles =
+        warp.callerFiles ? warp.callerFiles : warp.calleeFiles
+
+      // @DEBUG
+      // console.log(`@FILES-TO-DOWNLOAD >>`)
+      // console.log(firebaseFiles)
+
+      this.filesToDownload.push(firebaseFiles[filesCount])
+      filesCount++
+
     })
 
   }
@@ -346,7 +364,8 @@ class AppLite extends PendingContainer(LitElement) {
         return
     }
 
-    await firebaseController.getFileInfo(this.warpId)
+    // TODO
+    // waiting some time to permit the signaling on the callee
     await new Promise(resolve => setTimeout(resolve, 1000))
 
     // Select the Chunk Size to broke the file to send
@@ -388,16 +407,18 @@ class AppLite extends PendingContainer(LitElement) {
 
   } // end handleFileInputChange
 
+  async 
+
 
   // new warp means this is a Caller Peer
   async #newWarp () {
 
+    // newWarp this is a caller 
+    this.#triggerCallerUi()
+
     // init the RTCPeerConnection / FirebaseCOntroller as CALLER
     webrtcController = new WebRtcController(this, 'CALLER')
     firebaseController.initCallerOrCallee('CALLER')
-
-    // newWarp this is a caller 
-    this.#triggerCallerUi()
 
     if (this.warpId !== '---') {
       await this.#cleanWarp(this.warpId)
@@ -408,6 +429,8 @@ class AppLite extends PendingContainer(LitElement) {
     this.warpId = warpRef.id
 
     console.log('@WARP-ID >> ', this.warpId)
+    // update the url in the bar
+    window.history.replaceState({ page: 'warpId' }, 'WarpId', `#${this.warpId}`)
 
     // init files listeners on UI and on Signaling ch
     this.#initFilesChangeListener(warpRef.id)
@@ -457,21 +480,31 @@ class AppLite extends PendingContainer(LitElement) {
   }
 
   // join warp means this is a Callee Peers
-  async #joinWarp () {
+  async #joinWarp (hashWarpId) {
+
+     // joinWarp this is a callee
+     this.#triggerCalleeUi()
+
+    if (hashWarpId) {
+      // warpId is the hashbang on the location.href
+      this.warpId = hashWarpId
+    } else {
+      // warpId is passed as input
+      const input = this.renderRoot.getElementById('warpid')
+
+      if (!input.checkValidity()) {
+        // @ERROR or EXCEPTION
+        console.log('@WARP-ID >> Wrong Warp ID!')
+        return
+      }
+
+      this.warpId = input.value
+    }
 
     // init the RTCPeerConnection as CALLEE
     webrtcController = new WebRtcController(this, 'CALLEE')
     firebaseController.initCallerOrCallee('CALLEE')
 
-    const input = this.renderRoot.getElementById('warpid')
-
-    if (!input.checkValidity()) {
-      // @ERROR or EXCEPTION
-      console.log('@WARP-ID >> Wrong Warp ID!')
-      return
-    }
-
-    this.warpId = input.value
     const warpToJoin =
       await firebaseController.getWarp(this.warpId)
 
@@ -578,7 +611,6 @@ class AppLite extends PendingContainer(LitElement) {
 
   }
 
-
   async #triggerCallerUi () {
     // this is the Caller UI
     console.log('@UI >> Trigger Caller')
@@ -607,7 +639,7 @@ class AppLite extends PendingContainer(LitElement) {
 
   async #triggerCalleeUi () {
     // this is the Callee UI
-    console.log('@UI >> Trigger Caller')
+    console.log('@UI >> Trigger Callee')
 
     this.renderRoot.querySelector('main')
       .removeAttribute('caller')
@@ -637,99 +669,114 @@ class AppLite extends PendingContainer(LitElement) {
     webrtcController.sendMsg(msg)
   }
 
+
+  downloadButtonsRenderHelper () {
+    if (this.filesDownloaded && this.filesDownloaded.length > 0) {
+      return this.filesDownloaded.map((item) =>
+        html`
+          <p>${item.name}</p>
+          <p>${item.type}</p>
+          <p>${item.sizeHuman}</p>
+
+          <a 
+            id="download"
+            href=${item.url}
+            download=${item.name}>
+            Download
+          </a>
+          `
+    )} else {
+      return html ``
+    }
+  }
+
 	render () {
 		return html`
-
-      <!-- top notification -->
-      <div id="top-notification">
-        Top notification bar
-      </div>
 
       <main>
 
         <section
           id="callee"
-          @click=${this.#triggerCalleeUi}
-          style="background-color: red;">
+          @click=${this.#triggerCalleeUi}>
 
-          <div id="callee-content">
-            <input
-              id="warpid"
-              type="text"
-              name="warpid"
-              alt="Warp Id"
-              minlength="20"
-              maxlength="20"
-              placeholder="Warp Id ... "
-              size="20"
-              ?disabled=${this.caller}
-              autofocus/>
+          <div id="callee-content" class="content">
 
-            <button
-                id="joinwarp"
-                class="btn-default"
-                @click=${this.#joinWarp}
-                ?disabled=${this.caller}>
-                Join Warp
-            </button>
+            <div id="callee-warp" class="warp">
+              <input
+                id="warpid"
+                type="text"
+                name="warpid"
+                alt="Warp Id"
+                minlength="20"
+                maxlength="20"
+                placeholder="Warp Id ... "
+                size="20"
+                ?disabled=${this.caller}
+                autofocus/>
 
-            ${this.downloadAnchor
-                ? html`
-                  <p>${this.downloadName}</p>
-                  <p>${this.downloadSize} byte</p>
+              <button
+                  id="joinwarp"
+                  class="btn-default"
+                  @click=${this.#joinWarp}
+                  ?disabled=${this.caller}>
+                  Join Warp
+              </button>
+            </div>
 
-                  <a 
-                    id="download"
-                    href=${this.downloadAnchor}
-                    download=${this.downloadName}>Download</a>
-                  `
-                : html``
-              }
+            <div id="callee-files" class="files">
+              ${this.downloadButtonsRenderHelper()}
+            </div>
 
           </div>
 
         </section>
 
+        <!-- Caller Section -->
         <section
           id="caller"
-          @click=${this.#triggerCallerUi}
-          style="background-color: orange;">
+          @click=${this.#triggerCallerUi}>
 
-          <!-- callee content -->
-          <div id="caller-content">
-            <h2>WarpId: ${this.warpId}</h2>
+          <div id="caller-content" class="content">
 
-            <button
-              class="btn-default"
-              @click=${this.#newWarp}>
-              New Warp
-            </button>
+            <div id="caller-warp" class="warp">
+              <h2>WarpId: ${this.warpId}</h2>
 
-            <input id="msg" type="text" name="msg" />
+              <button
+                class="btn-default"
+                @click=${this.#newWarp}>
+                New Warp
+              </button>
 
-            <button
-              @click=${this.sendMsg}>
-              Send
-            </button>
+              <input id="msg" type="text" name="msg" />
 
-            <form id="file-info">
-              <input type="file" id="file-input" name="files"/>
-            </form>
-
-            <!-- Send info -->
-            <div class="progress">
-              <div class="label">Send progress: </div>
-              <progress id="send-progress" max="0" value=${this.progress}></progress>
+              <button
+                @click=${this.sendMsg}>
+                Send
+              </button>
             </div>
 
-            <!-- Receive info -->
-            <div class="progress">
-              <div class="label">Receive progress: </div>
-              <progress id="receive-progress" max="0" value=${this.progress}></progress>
-            </div>
+            <div id="caller-files" class="files">
 
-            <div id="bitrate"></div>
-            <span id="status"></span>
+                <form id="file-info">
+                  <input type="file" id="file-input" name="files"/>
+                </form>
+
+                <!-- Send info -->
+                <div class="progress">
+                  <div class="label">Send progress: </div>
+                  <progress id="send-progress" max="0" value=${this.progress}></progress>
+                </div>
+
+                <!-- Receive info -->
+                <div class="progress">
+                  <div class="label">Receive progress: </div>
+                  <progress id="receive-progress" max="0" value=${this.progress}></progress>
+                </div>
+
+                <div id="bitrate"></div>
+                <span id="status"></span>
+
+            </div>
 
           </div>
           
