@@ -8,15 +8,21 @@ import { sharedStyles } from './styles/shared-styles.js'
 
 import './views/home-view'
 
-let iceCandidateCount = 0
 let calleeContainer, callerContainer
 let fileReader
 let sendProgress, receiveProgress
 let statusMsg, bitrate, download
-let firebaseController, webrtcController
-let filesCount = 0
+let callerFilesCount = 0
+let calleeFilesCount = 0
+
+// localStorage warp key
+const warpKey = 'cached-warp'
 
 class AppLite extends PendingContainer(LitElement) {
+
+  // Connect to FirebaseController
+  firebaseController = new FirebaseController(this)
+  webrtcController = new WebRtcController(this)
 
 	static get styles () {
 		return [
@@ -154,12 +160,53 @@ class AppLite extends PendingContainer(LitElement) {
 			offline: Boolean,
 			mobileLayout: Boolean,
 			asideIsOpen: Boolean,
-      caller: Boolean,
-      channelOpened: Boolean,
+      channelOpen: Boolean,
+      peerName: String,
+      warp: {
+        type: Object,
+        state: true,
+        attribute: false
+      },
       warpId: {
         type: String,
         state: true,
         attribute: false
+      },
+      warpOffer: {
+        type: Array,
+        state: true,
+        attribute: false,
+        hasChanged: this.deepCheck
+      },
+      warpAnswer: {
+        type: Array,
+        state: true,
+        attribute: false,
+        hasChanged: this.deepCheck
+      },
+      iceCallerCandidates: {
+        type: Array,
+        state: true,
+        attribute: false,
+        hasChanged: this.deepCheck
+      },
+      iceCalleeCandidates: {
+        type: Array,
+        state: true,
+        attribute: false,
+        hasChanged: this.deepCheck
+      },
+      callerFiles: {
+        type: Array,
+        state: true,
+        attribute: false,
+        hasChanged: this.deepCheck
+      },
+      calleeFiles: {
+        type: Array,
+        state: true,
+        attribute: false,
+        hasChanged: this.deepCheck
       },
       filesToDownload: {
         type: Array,
@@ -177,24 +224,30 @@ class AppLite extends PendingContainer(LitElement) {
 
 	constructor () {
 		super()
-		// init
+
 		this.asideIsOpen = false
 		this.offline = !navigator.onLine
 		this.mobileLayout =
       window.innerWidth < 640
 
+    this.channelOpen = false
     this.warpId = '---'
-    this.caller = false
     this.channelOpened = false
 
-    this.filesDownloaded = []
-    this.filesToDownload = []
+    this.debug = true
 
-    // Firebase controller
-    firebaseController = new FirebaseController(this)
-    // WebRTC controller
-    webrtcController = {}
+    this.filesDownloaded = []
 	}
+
+  deepCheck (newVal, oldVal) {
+
+    if (JSON.stringify(newVal) === JSON.stringify(oldVal)) {
+      return false
+    } else {
+      return true
+    }
+
+  }
 
 
 	connectedCallback () {
@@ -216,8 +269,102 @@ class AppLite extends PendingContainer(LitElement) {
 		super.disconnectedCallback()
 	}
 
+  async willUpdate (changedProperties) {
+
+    // get the channel open
+    if (changedProperties.has('channelOpen')) {
+
+      if (this.channelOpen === true) {
+        this.saveWarpToLocalStorage(this.warp)
+
+        // @DEBUG
+        console.log('@channelOpen (property) >> ', this.channelOpen)
+      }
+    }
+
+    if (changedProperties.has('warpOffer')) {
+
+      // set the offer received from signaling on callee
+      if (this.firebaseController.callerOrCallee === 'CALLEE') {
+          this.setOffer(this.warpOffer)
+      }
+
+      // @DEBUG
+      // console.log('@warpOffer (property) >> ', this.warpOffer)
+    }
+
+    if (changedProperties.has('warpAnswer')) {
+
+      // set the answer on caller (received from signaling)
+      if (this.firebaseController.callerOrCallee === 'CALLER') {
+        this.setAnswer(this.warpAnswer)
+      }
+
+      // @DEBUG
+      console.log('@warpAnswer (property) >> ', this.warpAnswer)
+    }
+
+    if (changedProperties.has('iceCallerCandidates')) {
+
+      // received caller candidate from signaling, because im the callee
+      if (this.firebaseController.callerOrCallee === 'CALLEE') {
+        this.webrtcController.addIceCandidate(new RTCIceCandidate(
+          this.iceCallerCandidates))
+      }
+
+      // received from webrtcController, signaling it
+      if (this.firebaseController.callerOrCallee === 'CALLER') {
+        this.addIceCandidate(this.iceCallerCandidates)
+      }
+
+      // @DEBUG
+      console.log('@iceCallerCandidates (property) >> ', this.iceCallerCandidates)
+    }
+
+    if (changedProperties.has('iceCalleeCandidates')) {
+
+      // received callee candidate from signaling because im caller
+      if (this.firebaseController.callerOrCallee === 'CALLER') {
+        this.webrtcController.addIceCandidate(new RTCIceCandidate(
+          this.iceCalleeCandidates))
+      }
+
+      // received from webrtcController, signaling it
+      if (this.firebaseController.callerOrCallee === 'CALLEE') {
+        this.addIceCandidate(this.iceCalleeCandidates)
+      }
+
+      // @DEBUG
+      console.log('@iceCalleeCandidates (property) >> ', this.iceCalleeCandidates)
+    }
+
+    if (changedProperties.has('callerFiles')) {
+
+      // @DEBUG
+      console.log('@callerFiles (property) >> ', this.callerFiles)
+      console.log('@filesToDownload >> ', this.callerFiles[callerFilesCount])
+
+      this.filesToDownload = this.callerFiles[callerFilesCount]
+
+      callerFilesCount++
+    }
+
+    if (changedProperties.has('calleeFiles')) {
+
+      // @DEBUG
+      console.log('@calleeFiles (property) >> ', this.calleeFiles)
+      console.log('@TEST file >> ', this.calleeFiles[calleeFilesCount])
+
+      calleeFilesCount++
+    }
+
+  }
+
 
   async firstUpdated () {
+
+    // check if warp cached, not too old
+    this.loadWarpFromLocalStorage()
 
     // if warpIn in the URL set the page as callee
     const { hash, hostname } = window.location
@@ -226,7 +373,7 @@ class AppLite extends PendingContainer(LitElement) {
       const hashWarpId = hash.replace('#', '')
       console.log('@HASH >> ', hashWarpId)
 
-      await this.#joinWarp(hashWarpId)
+      this.renderRoot.getElementById('warpid').value = hashWarpId
     }
 
     calleeContainer =
@@ -240,8 +387,11 @@ class AppLite extends PendingContainer(LitElement) {
     bitrate = this.renderRoot.getElementById('bitrate')
     download = this.renderRoot.getElementById('download')
 
-  }
+    // init files listener
+    this.renderRoot.getElementById('file-input')
+        .addEventListener('change', this.handleFileInputChange.bind(this), false)
 
+  }
 
 	// handle back online
 	#goingOnline = () => {
@@ -265,13 +415,6 @@ class AppLite extends PendingContainer(LitElement) {
 		snack.title = title
 		snack.setAttribute('active', '')
 	}
-
-
-	// open / close aside nav (drawer)
-	#handleDrawer () {
-		this.asideIsOpen = !this.asideIsOpen
-	}
-
 
 	#handleResizeToDesktop = (e) => {
 		if (e.matches) {
@@ -306,21 +449,54 @@ class AppLite extends PendingContainer(LitElement) {
 		this.dispatchEvent(event)
 	}
 
+  saveWarpToLocalStorage (warp) {
 
-  #initFileInput () {
-    this.renderRoot.getElementById('file-input')
-        .addEventListener('change', this.handleFileInputChange.bind(this), false)
+    // add the warpId to the warp Object
+    warp.warpId = this.warpId
+
+    localStorage.setItem(warpKey,
+      JSON.stringify(warp))
+
+  }
+
+  loadWarpFromLocalStorage () {
+
+    try {
+
+      const jsonWarp =
+        JSON.parse(localStorage.getItem(warpKey))
+
+      if (!jsonWarp) return
+
+      const timeWindow =
+        (Date.now() / 1000) - 3600
+
+      if (jsonWarp.ts < timeWindow) {
+        localStorage.removeItem(warpKey)
+      } else {
+        // load the warpId
+        
+        this.warpId = jsonWarp.warpId
+        this.firebaseController.initWarpId(this.warpId)
+      }
+
+      // @DEBUG
+      console.log('@WARP (cache) >> ', jsonWarp)
+
+    } catch(error) {
+      console.log('@CATCH >> ', error)
+    }
 
   }
 
   #initFilesChangeListener (warpId) {
 
     // init the listening of warp changes (check files)
-    firebaseController.warpChanged(warpId, (snapshot) => {
+    this.firebaseController.warpChanged(warpId, (snapshot) => {
 
       const warp = snapshot.data()
 
-      // use to jumt the first / init read of warp
+      // use to jump the first / init read of warp
       if (!warp.callerFiles && !warp.calleeFiles) return
 
       // [{0: {size: 80085, type: 'image/jpeg', name: 'me.jpg'}}, 1: ...]
@@ -331,8 +507,8 @@ class AppLite extends PendingContainer(LitElement) {
       // console.log(`@FILES-TO-DOWNLOAD >>`)
       // console.log(firebaseFiles)
 
-      this.filesToDownload.push(firebaseFiles[filesCount])
-      filesCount++
+      // this.filesToDownload.push(firebaseFiles[filesCount])
+      // filesCount++
 
     })
 
@@ -355,7 +531,7 @@ class AppLite extends PendingContainer(LitElement) {
             size: file.size
         }
 
-        await firebaseController.setFileInfo(
+        await this.firebaseController.setFileInfo(
           this.warpId,
           fileInfo)
 
@@ -383,7 +559,7 @@ class AppLite extends PendingContainer(LitElement) {
         console.log(`@FILE-READER >> Read OK`)
 
         // File read, time to send down the ch
-        webrtcController.sendData(event.target.result)
+        this.webrtcController.sendData(event.target.result)
 
         offset += event.target.result.byteLength
         // use the shared variable you can reach in app
@@ -407,8 +583,6 @@ class AppLite extends PendingContainer(LitElement) {
 
   } // end handleFileInputChange
 
-  async 
-
 
   // new warp means this is a Caller Peer
   async #newWarp () {
@@ -416,56 +590,29 @@ class AppLite extends PendingContainer(LitElement) {
     // newWarp this is a caller 
     this.#triggerCallerUi()
 
-    // init the RTCPeerConnection / FirebaseCOntroller as CALLER
-    webrtcController = new WebRtcController(this, 'CALLER')
-    firebaseController.initCallerOrCallee('CALLER')
+    this.firebaseController.initCallerOrCallee('CALLER')
+    this.webrtcController.initCallerOrCallee('CALLER')
 
     if (this.warpId !== '---') {
       await this.#cleanWarp(this.warpId)
     }
 
     // Firebase ref to warp is returned
-    const warpRef = await firebaseController.initWarp()
+    const warpRef = await this.firebaseController.initWarp()
     this.warpId = warpRef.id
 
     console.log('@WARP-ID >> ', this.warpId)
     // update the url in the bar
     window.history.replaceState({ page: 'warpId' }, 'WarpId', `#${this.warpId}`)
 
-    // init files listeners on UI and on Signaling ch
-    this.#initFilesChangeListener(warpRef.id)
-    this.#initFileInput()
+    this.firebaseController.initWarpId(this.warpId)
 
-    // listen when a RTCIceCandidate is fired from RTCPeerConnection
-    webrtcController.listenIceCandidate(
-      this.#handleCallerIceCandidate.bind(this))
-
-    const offer = await webrtcController.createOffer()
+    const offer = await this.webrtcController.createOffer()
     const warpOffer = {
-      offer: JSON.stringify(offer)
+      offer: offer.toJSON()
     }
-    await firebaseController.addOfferToWarp(
-      this.warpId,
-      warpOffer)
     
-    // detect when signaling get the callee answer
-    firebaseController.warpChanged(
-      this.warpId,
-      async (snapshot) => {
-
-        const data = snapshot.data()
-        if (!data || !data.answer) return
-
-        const answer =
-          new RTCSessionDescription(JSON.parse(data.answer))
-        await webrtcController.setAnswerOnCaller(answer)
-
-    })
-
-    // listen when a RTCIceCandidate is add in signaling ch
-    firebaseController.callerIceCandidateChanges(
-      this.warpId,
-      this.#handleIceCandidateChanges.bind(this))
+    this.firebaseController.signalingOffer(warpOffer)
 
   } // end newWarp()
 
@@ -473,147 +620,65 @@ class AppLite extends PendingContainer(LitElement) {
   async #cleanWarp () {
 
     if (this.warpId !== '---') {
-      await firebaseController.cleanWarp(this.warpId)
+      await this.firebaseController.cleanWarp(this.warpId)
       this.warpId = '---'
     }
 
   }
 
   // join warp means this is a Callee Peers
-  async #joinWarp (hashWarpId) {
+  async #joinWarp () {
 
-     // joinWarp this is a callee
-     this.#triggerCalleeUi()
+    // joinWarp this is a callee
+    this.#triggerCalleeUi()
 
-    if (hashWarpId) {
-      // warpId is the hashbang on the location.href
-      this.warpId = hashWarpId
-    } else {
-      // warpId is passed as input
-      const input = this.renderRoot.getElementById('warpid')
+    // warpId is passed as input
+    const input = this.renderRoot.getElementById('warpid')
 
-      if (!input.checkValidity()) {
-        // @ERROR or EXCEPTION
-        console.log('@WARP-ID >> Wrong Warp ID!')
-        return
-      }
-
-      this.warpId = input.value
-    }
-
-    // init the RTCPeerConnection as CALLEE
-    webrtcController = new WebRtcController(this, 'CALLEE')
-    firebaseController.initCallerOrCallee('CALLEE')
-
-    const warpToJoin =
-      await firebaseController.getWarp(this.warpId)
-
-    if (!warpToJoin) {
+    if (!input.checkValidity()) {
       // @ERROR or EXCEPTION
-      console.log('@WARP-ID >> Invalid!')
+      console.log('@WARP-ID >> Wrong Warp ID!')
       return
     }
 
-    // listen when a RTCIceCandidate is fired from RTCPeerConnection
-    webrtcController.listenIceCandidate(
-      this.#handleCalleeIceCandidate.bind(this))
+    this.warpId = input.value
 
-    // retrieve from cloud and set the remote offer
-    const offer = new RTCSessionDescription(
-      JSON.parse(warpToJoin.offer)
-    )
-
-    const answer =
-      await webrtcController.setOfferOnCallee(offer)
-
-    const warpAnswer = {
-      answer: JSON.stringify(answer)
-    }
-
-    await firebaseController.addAnswerToWarp(
-      this.warpId,
-      warpAnswer
-    )
-
-    // listen when a RTCIceCandidate is add in signaling ch
-    firebaseController.calleeIceCandidateChanges(
-      this.warpId,
-      this.#handleIceCandidateChanges.bind(this))
-
-    // init files listeners on UI and on Signaling ch
-    // this.#initFileInput() TODO listen to file change on callee too
-    this.#initFilesChangeListener(this.warpId)
+    // init the RTCPeerConnection as CALLEE
+    this.webrtcController.initCallerOrCallee('CALLEE')
+    this.firebaseController.initCallerOrCallee('CALLEE')
+    this.firebaseController.initWarpId(this.warpId)
     
   }
 
-  async #handleCallerIceCandidate (event) {
-    // callback on listener for RTCIceCandidate on RTCPeerConnection
-        iceCandidateCount++
+  async setOffer (offer) {
 
-        if (!event.candidate) {
-          console.log('@ICE-CANDIDATE >> Candidate Got Final!')
-          return
-        }
+    // just received caller offer, handle caller offer & signaling answer
+    const answer = await this.webrtcController.handleOffer(
+      new RTCSessionDescription(offer))
 
-        console.log(`@ICE-CANDIDATE ${iceCandidateCount} >> `,
-            event.candidate.toJSON().candidate)
+    const warpAnswer = {
+      answer: answer.toJSON()
+    }
 
-        // if caller set the RTCIceCandidate on callee by signaling
-        await firebaseController.calleeAddIceCandidate(
-          this.warpId,
-          event.candidate.toJSON())
-        
+    this.firebaseController.signalingAnswer(warpAnswer)
   }
 
-  async #handleCalleeIceCandidate (event) {
-    // callback on listener for RTCIceCandidate on RTCPeerConnection
-        iceCandidateCount++
-
-        if (!event.candidate) {
-          console.log('@ICE-CANDIDATE >> Candidate Got Final!')
-          return
-        }
-
-        console.log(`@ICE-CANDIDATE ${iceCandidateCount} >> `,
-            event.candidate.toJSON().candidate)
-
-        // if callee set the RTCIceCandidate on caller by signaling
-        await firebaseController.callerAddIceCandidate(
-          this.warpId,
-          event.candidate.toJSON())
-        
+  async setAnswer (answer) {
+    // just received callee answer, set it on caller
+    await this.webrtcController.handleAnswer(
+      new RTCSessionDescription(answer))
   }
 
+  async addIceCandidate (iceCandidate) {
 
-  async #handleIceCandidateChanges (snapshot) {
+    const ic = new RTCIceCandidate(iceCandidate)
 
-    snapshot.docChanges().forEach(async (change) => {
-  
-      if (change.type === 'added') {
-        const data = change.doc.data()
-
-        // @DEBUG
-        // console.log(`@ICE-CHANGED >> ${data.candidate}`)
-
-        try {
-
-          webrtcController.addIceCandidate(
-            new RTCIceCandidate(data))
-
-        } catch (e) {
-          console.error(
-            `@CATCH >> Error adding received ice candidate`,
-            e)
-        }
-        
-      }
-    }) // end forEach
-
+     await this.firebaseController.addIceCandidate(ic)
   }
 
   async #triggerCallerUi () {
     // this is the Caller UI
-    console.log('@UI >> Trigger Caller')
+    // console.log('@UI >> Trigger Caller')
 
     this.renderRoot.querySelector('main')
       .removeAttribute('callee')
@@ -639,7 +704,7 @@ class AppLite extends PendingContainer(LitElement) {
 
   async #triggerCalleeUi () {
     // this is the Callee UI
-    console.log('@UI >> Trigger Callee')
+    // console.log('@UI >> Trigger Callee')
 
     this.renderRoot.querySelector('main')
       .removeAttribute('caller')
@@ -666,7 +731,7 @@ class AppLite extends PendingContainer(LitElement) {
   // wrapper on webrtcController.sendMsg
   sendMsg () {
     const msg = 'Hello RTCCiccio'
-    webrtcController.sendMsg(msg)
+    this.webrtcController.sendMsg(msg)
   }
 
 
@@ -711,14 +776,14 @@ class AppLite extends PendingContainer(LitElement) {
                 maxlength="20"
                 placeholder="Warp Id ... "
                 size="20"
-                ?disabled=${this.caller}
+                ?disabled=${this.channelOpen}
                 autofocus/>
 
               <button
                   id="joinwarp"
                   class="btn-default"
                   @click=${this.#joinWarp}
-                  ?disabled=${this.caller}>
+                  ?disabled=${this.channelOpen}>
                   Join Warp
               </button>
             </div>
@@ -758,7 +823,11 @@ class AppLite extends PendingContainer(LitElement) {
             <div id="caller-files" class="files">
 
                 <form id="file-info">
-                  <input type="file" id="file-input" name="files"/>
+                  <input
+                    type="file"
+                    id="file-input"
+                    name="files"
+                    ?disabled=${!this.channelOpen} />
                 </form>
 
                 <!-- Send info -->

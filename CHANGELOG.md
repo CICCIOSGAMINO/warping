@@ -6,7 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.4.0] - 06-10-2022
+## [0.5.0] - 13-10-2022
 
 ### Add
 	- New UI sections, fix UX

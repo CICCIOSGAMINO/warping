@@ -2,7 +2,7 @@ warping-web
 ===========
 [TOC]
 
-v0.4.0 - 06-10-2022
+v0.5.0 - 13-10-2022
 
 Warping Web - WebApp, share all stuff you need at the speed of light! Warping is trying to use the best speed possibile between the peers. Communication end to end encypted no server in the middle.
 
@@ -168,3 +168,12 @@ Actually a Google Cloud Functions run every 24 hours to clean the inactives warp
 
 https://console.cloud.google.com/functions/details/europe-west6/cleanWarps
 https://console.cloud.google.com/logs/query
+
+
+# TODO
+
+[✅] - Init the project\
+[❌] - Add the peerName, useful to show who is connected with whom\
+[❌] - Implements the hasChanged() in the warp* properties\
+[❌] - Fix the UX/UI\
+[❌] - Implements files\

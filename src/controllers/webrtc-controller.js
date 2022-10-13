@@ -16,18 +16,16 @@ const ICE_GOOGLE_CONF = {
 // DataChannel name
 const chName = 'cha0'
 let receivedSize, bitrateMax
-let callerOrCallee, ch
+let ch
 let receiveBuffer = []
+let iceCandidateCount = 0
 
 export class WebRtcController {
 
     // host / callType CALLER / CALLEE
-    constructor (host, callType) {
+    constructor (host) {
 
         (this.host = host).addController(this)
-
-        // init CALLER or CALLEE
-        callerOrCallee = callType
 
         this.host.filesToDownload = []
 
@@ -37,8 +35,19 @@ export class WebRtcController {
         // ICE Twilio Config
         // this.peerConnection = new RTCPeerConnection(this.ICE_TWILIO_CONF)
 
-        this.#initDataChannel()
-        this.#initPeerConnectionListeners()
+    }
+
+    initCallerOrCallee (callerOrCalleeStr) {
+        this.callerOrCallee = callerOrCalleeStr
+
+        // init the listeners that need it
+        this.initDataChannel()
+    }
+
+    initWarpId (warpId) {
+        this.warpId = warpId
+
+        // init the listeners that need it
     }
 
     hostConnected () {
@@ -50,7 +59,7 @@ export class WebRtcController {
     }
 
     hostUpdated () {
-        this.consoleLog('@WEBRTC-CTR >> Updated by Controller')
+        // this.consoleLog('@WEBRTC-CTR >> Updated by Controller')
     }
 
     // ------------------------- RTCSessionDescription ------------------------
@@ -58,24 +67,30 @@ export class WebRtcController {
     async createOffer () {
         const offer = await this.peerConnection.createOffer()
         await this.peerConnection.setLocalDescription(offer)
-        return offer
+
+        return this.peerConnection.localDescription
     }
 
     // #3 set the offer received from signaling to callee
-    async setOfferOnCallee (offer) {
+    async handleOffer (offer) {
         if (!(offer instanceof RTCSessionDescription)) return
-        this.peerConnection.setRemoteDescription(offer)
+        
+        await this.peerConnection.setRemoteDescription(offer)
 
         const answer = await this.peerConnection.createAnswer()
         await this.peerConnection.setLocalDescription(answer)
-        return answer
+        return this.peerConnection.localDescription
     }
 
     // #4 set remote on caller from answer received from callee
-    async setAnswerOnCaller (answer) {
+    async handleAnswer (answer) {
+
         if (!(answer instanceof RTCSessionDescription)) return
 
-        this.peerConnection.setRemoteDescription(answer)
+        // do NOT setRemote if connected
+        if (this.peerConnection.connectionState === 'connected') return
+
+        await this.peerConnection.setRemoteDescription(answer)
     }
 
     // ----------------------------- RTCIceCandidate --------------------------
@@ -83,81 +98,137 @@ export class WebRtcController {
     // @param {RTCIceCandidate} iceCandidate 
     addIceCandidate (iceCandidate) {
         if (!(iceCandidate instanceof RTCIceCandidate)) return
+
+        // TODO
+        // do NOT add if already in stable state
+        // if (this.host.signalingState === 'stable') return
+
         this.peerConnection.addIceCandidate(iceCandidate)
     }
 
-    listenIceCandidate (callback) {
-        this.peerConnection.addEventListener('icecandidate', callback)
+    initAllListeners () {
+        this.initDataListeners()
+        this.initPeerConnectionListeners()
+        this.initIceCandidateListener()
+    }
+
+    initIceCandidateListener () {
+
+        this.peerConnection.addEventListener('icecandidate', (event) => {
+
+            // when event.candidate undefined the process ended
+            if (!event.candidate) {
+                this.consoleLog('@ICE-CANDIDATE >> Candidate Got Final!')
+                return
+            }
+
+            const candidate = event.candidate.toJSON()
+
+            // @DEBUG
+            // console.log(`@ICE-CANDIDATE ${iceCandidateCount} >> `, candidate)
+
+            if (this.callerOrCallee === 'CALLER') {
+                this.host.iceCallerCandidates = candidate
+            }
+
+            if (this.callerOrCallee === 'CALLEE') {
+                this.host.iceCalleeCandidates = candidate
+            }
+
+        })
+
+        this.peerConnection.addEventListener('iceconnectionstatechange ', () => {
+            this.consoleLog(
+                `@ICE Connection state change >> ${this.peerConnection.iceConnectionState}`)
+        })
+        
+        this.peerConnection.addEventListener('icegatheringstatechange', () => {
+            this.consoleLog(
+                `@ICE Gathering state changed >> ${this.peerConnection.iceGatheringState}`)
+        })
+    
+        this.peerConnection.addEventListener('icecandidateerror', (err) => {
+            this.consoleLog(
+                `@ICE icecandidateerror >> `, err)
+        })
+        
     }
 
 
     // init RTCPeerConnection listeners
-    #initPeerConnectionListeners () {
-
-        this.peerConnection.addEventListener('iceconnectionstatechange ', () => {
-          this.consoleLog(
-              `@ICE-${callerOrCallee} Connection state change >> ${this.peerConnection.iceConnectionState}`)
-        })
-        
-        this.peerConnection.addEventListener('icegatheringstatechange', () => {
-          this.consoleLog(
-              `@ICE-${callerOrCallee} Gathering state changed >> ${this.peerConnection.iceGatheringState}`)
-        })
-    
-        this.peerConnection.addEventListener('icecandidateerror', (err) => {
-          this.consoleLog(
-            `@ICE-${callerOrCallee} icecandidateerror >> `, err)
-        })
+    initPeerConnectionListeners () {
       
         this.peerConnection.addEventListener('connectionstatechange', () => {
           this.consoleLog(
-            `@CONNECTION-${callerOrCallee} state >> ${this.peerConnection.connectionState}`)
+            `@CONNECTION statechange >> ${this.peerConnection.connectionState}`)
   
         })
 
         this.peerConnection.addEventListener('signalingstatechange', () => {
+            
             this.consoleLog(
-                `@SIGNALING-${callerOrCallee} >> ${this.peerConnection.signalingState}`)
+                `@CONNECTION statechange >> ${this.peerConnection.signalingState}`)
+
+           this.host.signalingState =
+                this.peerConnection.signalingState
         })
+
     } // end initPeerConnectionListeners
 
 
     // ----------------------------------- Data -------------------------------
     // init DataChannel s
-    #initDataChannel () {
+    initDataChannelOld () {
   
         // the caller start the data channel - callee listen to
-        if (callerOrCallee === 'CALLER') {
+        if (this.callerOrCallee === 'CALLER') {
   
-          ch =this.peerConnection.createDataChannel(chName)
-          this.#initDataListeners()
+          ch = this.peerConnection.createDataChannel(chName)
+         
+          // Active all listeners
+          this.initAllListeners()
         }
   
         // callee listen for the channel
-        if (callerOrCallee === 'CALLEE') {
+        if (this.callerOrCallee === 'CALLEE') {
 
             // event - RTCDataChannelEvent
             this.peerConnection.addEventListener('datachannel', event => {
 
             // @DEBUG
-            this.consoleLog(`@${chName}-${callerOrCallee} >> `, event.channel)
+            this.consoleLog(`@${chName}-${this.callerOrCallee} >> `, event.channel)
 
             ch = event.channel
-            this.#initDataListeners()
+            
+            // Active all listeners
+            this.initAllListeners()
             })
         }
 
     } // end initDataChannel
 
+    initDataChannel () {
+        ch = this.peerConnection.createDataChannel(chName)
+
+        this.initAllListeners()
+
+        this.peerConnection.addEventListener('datachannel', (event) => {
+            // @DEBUG
+            // this.consoleLog(`@${chName}-${this.callerOrCallee} >> `, event.channel)
+            this.consoleLog(`@CH ${chName} >> `, event.channel)
+
+            ch = event.channel
+        })
+    }
+
 
     // init DataChannel listeners
-    #initDataListeners () {
+    initDataListeners () {
         if (!ch) return
 
         // RTCDataChannel
         const chName = ch.label
 
-        // TODO binaryType
         ch.binaryType = 'arraybuffer'
         // init some vars
         receivedSize = 0
@@ -165,23 +236,29 @@ export class WebRtcController {
 
         ch.addEventListener('open', event => {
             // data channel open
-            this.consoleLog(`@${chName}-${callerOrCallee} >> OPEN`)
+            this.consoleLog(`@${chName} >> OPEN`)
+
+            this.host.channelOpen = true
         })
 
         ch.addEventListener('close', event => {
             // data channel close
-            this.consoleLog(`@${chName}-${callerOrCallee} >> CLOSE`)
+            this.consoleLog(`@${chName} >> CLOSE`)
+
+            this.host.channelOpen = false
         })
 
         ch.addEventListener('message', this.messageCallback.bind(this))
 
         ch.addEventListener('error', event => {
-            this.consoleLog(`@ERROR-${callerOrCallee} >> ${event}`)
+            this.consoleLog(`@CH ERROR >> ${event}`)
         })
     }
 
     messageCallback (event) {
-        // console.log(`@${chName} BYTE >> ${event.data.byteLength}`)
+
+        // @DEBUG
+        console.log(`@CH ${chName} BYTE >> ${event.data.byteLength}`)
         
         receiveBuffer.push(event.data)
         receivedSize += event.data.byteLength
@@ -189,19 +266,21 @@ export class WebRtcController {
         // use the shared variable you can reach in app
         this.received = receivedSize
 
+        console.log('@DEBUG this.host.filesToDownload >> ', this.host.filesToDownload)
+
         // when we have info from signaling pack in Blob
         if (this.host.filesToDownload.length === 0) return
 
-        const fileName = this.host.filesToDownload[0].name
-        const fileType = this.host.filesToDownload[0].type
-        const fileSize = this.host.filesToDownload[0].size
+        const fileName = this.host.filesToDownload.name
+        const fileType = this.host.filesToDownload.type
+        const fileSize = this.host.filesToDownload.size
 
-        console.log(`@DEBUG FILE-SIZE ${receivedSize}  fileZise: ${fileSize}`)
+        this.consoleLog(`@DEBUG FILE-SIZE ${receivedSize}  fileZise: ${fileSize}`)
 
         // all bytes arrived
         if (receivedSize === fileSize) {
 
-            console.log(`@OK >> Process File with size ${receivedSize}  fileZise: ${fileSize}`)
+            this.consoleLog(`@OK >> Process File with size ${receivedSize}  fileZise: ${fileSize}`)
 
             const received = new Blob(receiveBuffer)
             receiveBuffer = []
@@ -215,7 +294,7 @@ export class WebRtcController {
                 sizeHuman: this.showFileSize(fileSize)
             })
 
-            this.host.filesToDownload.shift()
+            this.host.filesToDownload = {}
             this.host.requestUpdate()
         }
 
